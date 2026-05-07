@@ -1,0 +1,44 @@
+name: basic-lab
+
+topology:
+  defaults:
+    kind: linux
+    image: clab-ubuntu-softnet:latest
+
+  nodes:
+    hs1:
+      binds:
+        - configs/hs1.cfg:/etc/nodes/hs1.cfg:ro
+        - bin/entrypoint.sh:/entrypoint.sh:ro
+      exec:
+        - bash /entrypoint.sh
+        - ip route add 10.0.2.0/24 via 10.0.1.1
+
+    rt1:
+      binds:
+        - configs/rt1.cfg:/etc/nodes/rt1.cfg:ro
+        - bin/entrypoint.sh:/entrypoint.sh:ro
+      exec:
+        - bash /entrypoint.sh
+        - ip link set eth2 up
+        - ip addr add 10.0.2.1/24 dev eth2
+        - sysctl -w net.ipv4.ip_forward=1
+        - iptables -A FORWARD -s 10.0.1.0/24 -d 10.0.2.0/24 -j ACCEPT
+        - iptables -A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT
+        - iptables -A FORWARD -j DROP
+
+    hs2:
+      binds:
+        - configs/hs2.cfg:/etc/nodes/hs2.cfg:ro
+        - bin/entrypoint.sh:/entrypoint.sh:ro
+      exec:
+        - bash /entrypoint.sh
+        - ip route add 10.0.1.0/24 via 10.0.2.1
+
+  links:
+    - endpoints:
+        - hs1:eth1
+        - rt1:eth1
+    - endpoints:
+        - rt1:eth2
+        - hs2:eth1
